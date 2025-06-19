@@ -1,4 +1,4 @@
-# taky
+# Jachimo's fork of *taky*
 
 taky - A simple COT server for ATAK
 
