@@ -18,7 +18,7 @@ software release.
 
 ## Reporting a Vulnerability
 
-If you have discovered a vulnerability in taky, please contact it's developers
+If you have discovered a vulnerability in taky, please contact its developers
 privately. Feel free to ping on Discord, where you will find them to be most
 responsive.
 
