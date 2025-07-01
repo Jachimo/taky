@@ -32,6 +32,8 @@ UDP Like Commands
 
 from datetime import datetime as dt
 import logging
+import io
+import xml.etree.ElementTree as ET
 
 from lxml import etree
 import redis
@@ -305,3 +307,131 @@ class RedisPersistence(BasePersistence):
         except redis.ConnectionError:
             self._redis_result(False)
             return
+
+
+try:
+    import oci  # Oracle Cloud Infrastructure Python SDK
+except ImportError:
+    oci = None  # Don't throw error unless class is actually instantiated w/o SDK
+
+class OraclePersistence(BasePersistence):
+    """
+    Persistence backend for storing CoT events in Oracle Cloud Object Storage.
+    Each event is stored as an XML object in a specified bucket.
+    """
+
+    def __init__(self, namespace, bucket_name, config, compartment_id, prefix="cot_events"):
+        """
+        Initialize the Oracle Object Storage client and set up bucket details.
+
+        Args:
+            namespace (str): Oracle Object Storage namespace.
+            bucket_name (str): Name of the bucket to use.
+            config (dict): Oracle SDK config dict (see OCI docs).
+            compartment_id (str): Compartment OCID.
+            prefix (str): Prefix for object keys (optional).
+        """
+        # Require Oracle SDK:
+        if oci is None:
+            raise ImportError("oci SDK is not installed. Please install 'oci' package.")
+
+        self.namespace = namespace
+        self.bucket_name = bucket_name
+        self.compartment_id = compartment_id
+        self.prefix = prefix
+
+        # Create Object Storage client
+        self.client = oci.object_storage.ObjectStorageClient(config)
+
+    def _make_key(self, uid):
+        """
+        Generate the object key for a given event UID.
+        """
+        return f"{self.prefix}/{uid}.xml"
+
+    def _get_event(self, uid, uid_is_redis_key=False):
+        """
+        Retrieve an event by UID from Oracle Object Storage.
+
+        Args:
+            uid (str): Event UID.
+            uid_is_redis_key (bool): Ignored for this backend.
+
+        Returns:
+            xml.etree.ElementTree.Element: Parsed event XML, or None if not found.
+        """
+        object_name = self._make_key(uid)
+        try:
+            response = self.client.get_object(self.namespace, self.bucket_name, object_name)
+            xml_data = response.data.content
+            # Parse XML and return the root element
+            return ET.fromstring(xml_data)
+        except oci.exceptions.ServiceError as e:
+            if e.status == 404:
+                # Object not found
+                return None
+            # Log or handle other errors as needed
+            raise
+        except ET.ParseError:
+            # Malformed XML in storage
+            return None
+
+    def _set_event(self, uid, event, *args, **kwargs):
+        """
+        Store an event in Oracle Object Storage.
+
+        Args:
+            uid (str): Event UID.
+            event (xml.etree.ElementTree.Element): Event XML element.
+        """
+        object_name = self._make_key(uid)
+        # Serialize XML to bytes
+        xml_bytes = ET.tostring(event, encoding="utf-8")
+        # Upload to Oracle Object Storage
+        try:
+            self.client.put_object(
+                self.namespace,
+                self.bucket_name,
+                object_name,
+                io.BytesIO(xml_bytes)
+            )
+        except oci.exceptions.ServiceError as e:
+            # Log or handle upload errors
+            raise
+
+    def _del_event(self, uid):
+        """
+        Delete an event from Oracle Object Storage.
+
+        Args:
+            uid (str): Event UID.
+        """
+        object_name = self._make_key(uid)
+        try:
+            self.client.delete_object(self.namespace, self.bucket_name, object_name)
+        except oci.exceptions.ServiceError as e:
+            if e.status != 404:
+                # Ignore not found, raise other errors
+                raise
+
+    def _list_events(self):
+        """
+        List all event UIDs stored in Oracle Object Storage.
+
+        Returns:
+            list: List of event UIDs (str).
+        """
+        try:
+            objects = self.client.list_objects(
+                self.namespace,
+                self.bucket_name,
+                prefix=self.prefix + "/"
+            ).data.objects
+            # Extract UIDs from object names
+            uids = [obj.name[len(self.prefix)+1:-4] for obj in objects if obj.name.endswith(".xml")]
+            return uids
+        except oci.exceptions.ServiceError as e:
+            # Log or handle errors
+            return []
+
+    # Add any other required methods for persistence
