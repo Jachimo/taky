@@ -51,12 +51,12 @@ def load_config(path=None, explicit=False):
     if path is None:
         if os.path.exists("taky.conf"):
             path = os.path.abspath("taky.conf")
-            lgr.info("Assuming %s", path)
+            lgr.info(f"Config file found at {path}")
         elif os.path.exists("/etc/taky/taky.conf"):
             path = "/etc/taky/taky.conf"
-            lgr.info("Assuming %s", path)
+            lgr.info(f"Config file found at {path}")
         elif explicit:
-            raise FileNotFoundError("Unable to find default config file")
+            raise FileNotFoundError("Config file not found in default locations")
 
     ret_config = configparser.ConfigParser(allow_no_value=True)
     ret_config.read_dict(DEFAULT_CFG)
