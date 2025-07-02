@@ -6,12 +6,11 @@ app_config = configparser.ConfigParser(allow_no_value=True)
 
 DEFAULT_CFG = {
     "taky": {
-        "hostname": "taky.local",  # Servers FQDN
-        "node_id": "TAKY",  # TAK Server nodeId
-        "bind_ip": None,  # Defaults to all (0.0.0.0)
+        "hostname": "taky.local",  # Server's FQDN
+        "node_id": "TAKY",  # This server's TAK nodeId
+        "bind_ip": None,  # Bind address; if None, defaults to all (0.0.0.0) interfaces
         "public_ip": None,  # Server's public IP address
-        "redis": None,  # If Redis is enabled. True for localhost,
-        # or a redis:// connect string
+        "redis": None,  # None if disabled, True for localhost, or a redis:// connect string for remote
         "root_dir": "/var/taky",  # Where the root taky directory lies
     },
     "cot_server": {
