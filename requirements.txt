@@ -3,4 +3,5 @@ cryptography>=38.0.0
 dateutils
 Flask~=2.0
 gunicorn
-redis
+redis  # For Redis persistence backend only
+oci    # For Oracle object storage backend only
