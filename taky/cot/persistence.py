@@ -171,7 +171,6 @@ class Persistence(BasePersistence):
     def get_all(self):
         self.prune()
         ret = self.events.values()
-
         return ret
 
     def prune(self):
