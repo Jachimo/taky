@@ -68,9 +68,8 @@ def build_persistence():
                 keyspace=config.get("taky", "hostname"), 
                 conn_str=config.get("redis", "server"))
         else:
-            return RedisPersistence()  # assume localhost if no conn string provided
+            return RedisPersistence()  # assume localhost & no keyspace if no conn string provided
     if config.get("taky", "persistence") == "oracle":
-        # namespace, bucket_name, config, compartment_id, prefix=None
         return OraclePersistence(
             namespace=config.get("oracle", "namespace"),
             bucket_name=config.get("oracle", "bucket_name"),
@@ -424,6 +423,7 @@ class OraclePersistence(BasePersistence):
 
     def _get_objects(self, search_prefix):
         try:
+            # TODO: Responses may be paginated and need to be walked through, & could be very large
             objects = self.client.list_objects(self.namespace, self.bucket_name, prefix=search_prefix).data.objects
         except oci.exceptions.ServiceError as e:
             raise
