@@ -33,7 +33,6 @@ UDP Like Commands
 from datetime import datetime as dt
 import logging
 import io
-#import xml.etree.ElementTree as ET
 from lxml import etree
 
 try:
