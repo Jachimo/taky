@@ -54,18 +54,18 @@ def load_config(path=None, explicit=False):
     """
     lgr = logging.getLogger("load_config")
 
+    ret_config = configparser.ConfigParser(allow_no_value=True)
+    ret_config.read_dict(DEFAULT_CFG)
+
     if path is None:
-        if os.path.exists("taky.conf"):
+        if explicit:
+            raise FileNotFoundError("Config file explicitly required, but not present")
+        elif os.path.exists("taky.conf"):
             path = os.path.abspath("taky.conf")
             lgr.info(f"Config file found at {path}")
         elif os.path.exists("/etc/taky/taky.conf"):
             path = "/etc/taky/taky.conf"
             lgr.info(f"Config file found at {path}")
-        elif explicit:
-            raise FileNotFoundError("Config file not found in default locations")
-
-    ret_config = configparser.ConfigParser(allow_no_value=True)
-    ret_config.read_dict(DEFAULT_CFG)
 
     if path and os.path.exists(path):
         lgr.info("Loading config file from %s", path)
@@ -73,15 +73,14 @@ def load_config(path=None, explicit=False):
         with open(path, "r", encoding="utf8") as cfg_fp:
             ret_config.read_file(cfg_fp, source=path)
     elif explicit:
-        raise FileNotFoundError("Config file required, but not present")
+        raise FileNotFoundError("Config file explicitly required, but not present")
     else:
         lgr.info("Using default config")
         cfg_dir = os.getcwd()
-
         ret_config.set("taky", "root_dir", ".")
         ret_config.set("dp_server", "upload_path", "./dp-user")
 
-    # Make directories absolute
+    # Make dir paths absolute
     for (sect, opt) in [
         ("taky", "root_dir"),
         ("dp_server", "upload_path"),
@@ -92,9 +91,13 @@ def load_config(path=None, explicit=False):
             path = os.path.realpath(os.path.join(cfg_dir, path))
             ret_config.set(sect, opt, path)
 
+    # Validate port selection
     port = ret_config.get("cot_server", "port")
     if port in [None, ""]:
-        port = 8089 if ret_config.getboolean("ssl", "enabled") else 8087
+        if ret_config.getboolean("ssl", "enabled"):
+            port = 8089
+        else:
+            port = 8087
     else:
         try:
             port = int(port)
@@ -105,6 +108,7 @@ def load_config(path=None, explicit=False):
             raise ValueError(f"Invalid port: {port}")
     ret_config.set("cot_server", "port", str(port))
 
+    # Validate max TTL
     max_ttl = ret_config.get("cot_server", "max_persist_ttl")
     if max_ttl in [None, ""]:
         max_ttl = -1
@@ -115,19 +119,19 @@ def load_config(path=None, explicit=False):
             raise ValueError(f"Invalid max_persist_ttl: {max_ttl}") from exc
     ret_config.set("cot_server", "max_persist_ttl", str(max_ttl))
 
+    # Validate SSL-related settings
     if not ret_config.getboolean("ssl", "enabled"):
-        # Disable monitor port
-        ret_config.set("cot_server", "mon_ip", None)
+        ret_config.set("cot_server", "mon_ip", None)  # No monitor IP if SSL is disabled
+        ret_config.set("cot_server", "mon_port", None)
     else:
         port = ret_config.get("cot_server", "mon_port")
         if port in [None, ""]:
-            port = 8087 if ret_config.getboolean("ssl", "enabled") else None
+            port = 8087
         else:
             try:
                 port = int(port)
             except (TypeError, ValueError) as exc:
                 raise ValueError(f"Invalid port: {port}") from exc
-
             if port <= 0 or port >= 65535:
                 raise ValueError(f"Invalid port: {port}")
         ret_config.set("cot_server", "mon_port", str(port))
