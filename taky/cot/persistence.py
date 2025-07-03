@@ -341,12 +341,14 @@ class OraclePersistence(BasePersistence):
     """
 
     def __init__(self,
-                 namespace,   # namespace (str): Oracle Object Storage namespace (immutable)
-                 bucket_name, # bucket_name (str): Name of the bucket to use, within the namespace
-                 config,      # config (dict): Oracle SDK config dict (see OCI docs)
+                 namespace,       # namespace (str): Oracle Object Storage namespace (immutable)
+                 bucket_name,     # bucket_name (str): Name of the bucket to use, within the namespace
+                 config,          # config (dict): Oracle SDK config dict (see OCI docs)
                  compartment_id,  # compartment_id (str): Oracle Cloud 'Compartment' OCID
-                 prefix=None):  # prefix (str): Add'l prefix for object keys (similar to Redis keyspace)
+                 prefix=None):    # prefix (str): Add'l prefix for object keys (similar to Redis keyspace)
+        super().__init__()
 
+        # Require OCI module
         if oci is None:
             raise ImportError("oci SDK is not installed. Please install 'oci' package.")
         
@@ -379,16 +381,18 @@ class OraclePersistence(BasePersistence):
         Returns parsed event XML, or None if not found.
         """
         if uid_is_key:
-            object_name = uid
+            key = uid
         else:
-            object_name = self._get_key(uid)  # adds prefix (if prefix non-null)
+            key = self._get_key(uid)  # adds prefix (if prefix non-null)
         
         evt = None
 
         try:
-            response = self.client.get_object(self.namespace, self.bucket_name, object_name)
-            xml_data = response.data.content
-            if xml_data == None:
+            response = self.client.get_object(self.namespace, self.bucket_name, key)
+            if not response or not hasattr(response, "data") or response.data is None:
+                return None
+            xml_data = response.data.read()
+            if xml_data is None:
                 return None
         except oci.exceptions.ServiceError as e:
             if e.status == 404:
