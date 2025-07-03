@@ -13,6 +13,12 @@ DEFAULT_CFG = {
         "redis": None,  # None if disabled, True for localhost, or a redis:// connect string for remote
         "root_dir": "/var/taky",  # Where the root taky directory lies
     },
+    "redis": {
+        "server": "localhost"  # Default Redis server to use if persistence=redis
+    },
+    "oracle": {
+        # TODO: Oracle Object Storage backend default config params
+    },
     "cot_server": {
         "port": None,  # Defaults to 8087 (or 8089 if SSL)
         "mon_ip": None,

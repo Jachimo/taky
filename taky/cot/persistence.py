@@ -63,19 +63,23 @@ def build_persistence():
     """
     Factory method to build a Persistence object from the given config
     """
-    try:
-        if config.getboolean("taky", "redis"):
-            return RedisPersistence(config.get("taky", "hostname"))
-
+    if config.get("taky", "persistence") == "redis":
+        if config.get("redis", "server")[:8] == 'redis://':
+            return RedisPersistence(
+                keyspace=config.get("taky", "hostname"), 
+                conn_str=config.get("redis", "server"))
+        else:
+            return RedisPersistence()  # assume localhost if no conn string provided
+    if config.get("taky", "persistence") == "oracle":
+        # namespace, bucket_name, config, compartment_id, prefix=None
+        return OraclePersistence(
+            namespace=config.get("oracle", "namespace"),
+            bucket_name=config.get("oracle", "bucket_name"),
+            config=config.get("oracle", "config"),  # TODO: Check this...
+            compartment_id=config.get("oracle", "compartment"),
+            prefix=config.get("oracle", "prefix"))
+    else:
         return Persistence()
-    except (AttributeError, ValueError):
-        pass
-
-    conn_str = config.get("taky", "redis")
-    if conn_str:
-        return RedisPersistence(config.get("taky", "hostname"), conn_str)
-
-    return Persistence()
 
 
 class BasePersistence:
