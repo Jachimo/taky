@@ -10,7 +10,7 @@ DEFAULT_CFG = {
         "node_id": "TAKY",  # This server's TAK nodeId
         "bind_ip": None,  # Bind address; if None, defaults to all (0.0.0.0) interfaces
         "public_ip": None,  # Server's public IP address
-        "redis": None,  # None if disabled, True for localhost, or a redis:// connect string for remote
+        "persistence": "memory",  # Persistance backend to use
         "root_dir": "/var/taky",  # Where the root taky directory lies
     },
     "redis": {
