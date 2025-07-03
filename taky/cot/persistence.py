@@ -30,6 +30,7 @@ UDP Like Commands
   r - Reply
 """
 
+from abc import ABC, abstractmethod
 from datetime import datetime as dt
 import logging
 import io
@@ -80,7 +81,7 @@ def build_persistence():
         return Persistence()
 
 
-class BasePersistence:
+class BasePersistence(ABC):
     def __init__(self):
         self.lgr = logging.getLogger(self.__class__.__name__)
 
@@ -105,18 +106,21 @@ class BasePersistence:
 
         self.track_event(event, ttl)
 
+    @abstractmethod
     def track_event(self, event, ttl):
         """
         Add the event to the database
         """
         raise NotImplementedError()
 
+    @abstractmethod
     def get_all(self):
         """
         Return all items tracked
         """
         raise NotImplementedError()
 
+    @abstractmethod
     def get_event(self, uid):
         """
         Return a specific Event by UID. Returns None if the event does not
@@ -124,12 +128,14 @@ class BasePersistence:
         """
         raise NotImplementedError()
 
+    @abstractmethod
     def event_exists(self, uid):
         """
         Return true if the event exists
         """
         raise NotImplementedError()
 
+    @abstractmethod
     def prune(self):
         """
         Prune the collection
@@ -226,6 +232,10 @@ class RedisPersistence(BasePersistence):
             self._redis_result(True)
         except redis.ConnectionError:
             self._redis_result(False)
+    
+    def prune(self):
+        """ Redis backend does not require pruning. """
+        return
 
     def _redis_result(self, result):
         """
@@ -447,3 +457,11 @@ class OraclePersistence(BasePersistence):
     
     def track_event(self, event, ttl=None):
         return self._set_event(event.uid, event)
+    
+    def event_exists(self, uid):
+        # TODO: Placeholder for testing
+        raise NotImplementedError
+
+    def prune(self):
+        # TODO: Placeholder for testing; should prune object store of stale/expired items
+        raise NotImplementedError
