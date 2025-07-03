@@ -332,30 +332,26 @@ class OraclePersistence(BasePersistence):
     Each event is stored as an XML object in a specified bucket.
     """
 
-    def __init__(self, namespace, bucket_name, config, compartment_id, prefix=None):
-        """
-        Initialize the Oracle Object Storage client and set up bucket details.
-
-        Args:
-            namespace (str): Oracle Object Storage namespace (immutable).
-            bucket_name (str): Name of the bucket to use, within the namespace.
-            config (dict): Oracle SDK config dict (see OCI docs).
-            compartment_id (str): Oracle Cloud 'Compartment' OCID.
-            prefix (str): Add'l prefix for object keys (similar to Redis keyspace).
-        """
-        super().__init__()
+    def __init__(self,
+                 namespace,   # namespace (str): Oracle Object Storage namespace (immutable)
+                 bucket_name, # bucket_name (str): Name of the bucket to use, within the namespace
+                 config,      # config (dict): Oracle SDK config dict (see OCI docs)
+                 compartment_id,  # compartment_id (str): Oracle Cloud 'Compartment' OCID
+                 prefix=None):  # prefix (str): Add'l prefix for object keys (similar to Redis keyspace)
 
         if oci is None:
             raise ImportError("oci SDK is not installed. Please install 'oci' package.")
+        
+        super().__init__()
 
         self.namespace = namespace
         self.bucket_name = bucket_name
         self.compartment_id = compartment_id
         self.prefix = prefix
         self.client = oci.object_storage.ObjectStorageClient(config)
-
+    
     def _get_key(self, uid):
-        """ Generate the object key for a given event UID. """
+        """ Generate the object key by adding prefix for a given event UID. """
         if self.prefix:
             return f"{self.prefix}/{uid}"
         else:
@@ -400,9 +396,6 @@ class OraclePersistence(BasePersistence):
             self.lgr.warning("Unable to parse Event: %s", exc)
         
         return evt
-    
-    def track_event(self, event, ttl=None):
-        return self._set_event(event.uid, event)
 
     def _set_event(self, uid, event):
         object_name = self._get_key(uid)
@@ -419,9 +412,6 @@ class OraclePersistence(BasePersistence):
             raise  # Log or handle upload errors
 
         return True
-    
-    def del_event(self, event):
-        return self._del_event(event.uid)
 
     def _del_event(self, uid):
         object_name = self._get_key(uid)
@@ -438,6 +428,9 @@ class OraclePersistence(BasePersistence):
         except oci.exceptions.ServiceError as e:
             raise
         return objects
+    
+    def del_event(self, event):
+        return self._del_event(event.uid)
 
     def get_all(self):
         """
@@ -451,3 +444,6 @@ class OraclePersistence(BasePersistence):
             uids = [obj.name for obj in objects]
         
         return uids
+    
+    def track_event(self, event, ttl=None):
+        return self._set_event(event.uid, event)
