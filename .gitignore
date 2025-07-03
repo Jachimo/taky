@@ -18,3 +18,7 @@ htmlcov
 *.pem
 *.p12
 *.zip
+
+# venv Virtual Environment
+.venv
+venv
