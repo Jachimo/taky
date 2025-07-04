@@ -66,6 +66,8 @@ def load_config(path=None, explicit=False):
         elif os.path.exists("/etc/taky/taky.conf"):
             path = "/etc/taky/taky.conf"
             lgr.info(f"Config file found at {path}")
+        else:
+            raise FileNotFoundError("No config file found in default locations")
 
     if path and os.path.exists(path):
         lgr.info("Loading config file from %s", path)
