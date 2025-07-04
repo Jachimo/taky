@@ -55,7 +55,7 @@ def load_config(path=None, explicit=False):
     lgr = logging.getLogger("load_config")
 
     ret_config = configparser.ConfigParser(allow_no_value=True)
-    ret_config.read_dict(DEFAULT_CFG)
+    ret_config.read_dict(DEFAULT_CFG)  # load default values into ret_config
 
     if path is None:
         if explicit:
