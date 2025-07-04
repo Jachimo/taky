@@ -333,10 +333,12 @@ class OraclePersistence(BasePersistence):
     """
     Persistence backend for storing CoT events in Oracle Cloud Object Storage.
     Each event is stored as an XML object in a specified bucket.
-    Arguments:
-      taky_config: taky.config.app_config object with required [oracle] section
     """
     def __init__(self, taky_config):
+        """
+        Required Arguments:
+          taky_config: a taky.config.app_config object with required [oracle] section
+        """
         super().__init__()
 
         # Require OCI module
