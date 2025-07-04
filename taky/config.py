@@ -73,7 +73,7 @@ def load_config(path=None, explicit=False):
         lgr.info("Loading config file from %s", path)
         cfg_dir = os.path.realpath(os.path.dirname(path))
         with open(path, "r", encoding="utf8") as cfg_fp:
-            ret_config.read_file(cfg_fp, source=path)
+            ret_config.read_file(cfg_fp, source=path)  # read config file into ret_config
     elif explicit:
         raise FileNotFoundError("Config file explicitly required, but not present")
     else:
