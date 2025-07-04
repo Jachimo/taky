@@ -34,15 +34,16 @@ from abc import ABC, abstractmethod
 from datetime import datetime as dt
 import logging
 import io
+import hashlib
 from lxml import etree
 
 try:
-    import redis
+    import redis  # Only required to instantiate RedisPersistence backend
 except ImportError:
     redis = None
 
 try:
-    import oci  # Oracle Cloud Infrastructure Python SDK
+    import oci  # Only required to instantiate OraclePersistence backend
 except ImportError:
     oci = None
 
@@ -71,12 +72,7 @@ def build_persistence():
         else:
             return RedisPersistence()  # assume localhost & no keyspace if no conn string provided
     if config.get("taky", "persistence") == "oracle":
-        return OraclePersistence(
-            namespace=config.get("oracle", "namespace"),
-            bucket_name=config.get("oracle", "bucket_name"),
-            config=config.get("oracle", "config"),  # TODO: Check this...
-            compartment_id=config.get("oracle", "compartment"),
-            prefix=config.get("oracle", "prefix"))
+        return OraclePersistence(taky_config=config)
     else:
         return Persistence()
 
@@ -203,7 +199,6 @@ class RedisPersistence(BasePersistence):
 
     In most configurations, keyspace should be the hostname.
     """
-
     def __init__(self, keyspace=None, conn_str=None):
         super().__init__()
 
@@ -338,27 +333,95 @@ class OraclePersistence(BasePersistence):
     """
     Persistence backend for storing CoT events in Oracle Cloud Object Storage.
     Each event is stored as an XML object in a specified bucket.
+    Arguments:
+      taky_config: taky.config.app_config object with required [oracle] section
     """
-
-    def __init__(self,
-                 namespace,       # namespace (str): Oracle Object Storage namespace (immutable)
-                 bucket_name,     # bucket_name (str): Name of the bucket to use, within the namespace
-                 config,          # config (dict): Oracle SDK config dict (see OCI docs)
-                 compartment_id,  # compartment_id (str): Oracle Cloud 'Compartment' OCID
-                 prefix=None):    # prefix (str): Add'l prefix for object keys (similar to Redis keyspace)
+    def __init__(self, taky_config):
         super().__init__()
 
         # Require OCI module
         if oci is None:
             raise ImportError("oci SDK is not installed. Please install 'oci' package.")
-        
-        super().__init__()
 
-        self.namespace = namespace
-        self.bucket_name = bucket_name
-        self.compartment_id = compartment_id
-        self.prefix = prefix
-        self.client = oci.object_storage.ObjectStorageClient(config)
+        # Required connection parameters for Oracle OCI Object Storage:
+        # https://docs.oracle.com/en-us/iaas/tools/python/2.154.0/configuration.html
+        self.oci_config = {
+            "user": taky_config.get("oracle", "user"),
+            "key_file": taky_config.get("oracle", "keyfile_path"),
+            "fingerprint": taky_config.get("oracle", "fingerprint"),
+            "tenancy": taky_config.get("oracle", "tenancy"),
+            "region": taky_config.get("oracle", "region")}
+        
+        self.compartment_id = taky_config.get("oracle", "compartment")
+        self.bucket_name = taky_config.get("oracle", "bucket_name")
+        self.prefix = taky_config.get("oracle", "prefix")
+        self.is_config_valid = False
+        self.namespace = ''
+
+        self.client = self.create_client()
+    
+    def create_client(self) -> oci.object_storage.ObjectStorageClient:
+        """ Create an OCI client object that can be used to perform operations """
+        if not self.is_config_valid:
+            self.validate_config()
+        self.client = oci.object_storage.ObjectStorageClient(self.oci_config)
+        return self.client
+    
+    def validate_config(self) -> None:
+        """ Uses OCI API to validate Object Storage configuration """
+        oci.config.validate_config(self.oci_config)  # https://docs.oracle.com/en-us/iaas/tools/python/2.154.0/api/config.html#oci.config.validate_config
+        self.is_config_valid = True
+        return
+    
+    def get_namespace(self) -> str:
+        """ Retrieves the immutable namespace for the Oracle Cloud Storage instance """
+        response = self.client.get_namespace()
+        if response:  # keep type checker from choking
+            self.namespace = response.data
+        return self.namespace
+    
+    def check_bucket_exists(self) -> bool:
+        """
+        Checks to see if a bucket exists by looking for it in list of all buckets.
+        Could potentially be slow on a large Object Storage instance.
+        """
+        if not self.client:
+            self.create_client()
+        if not self.namespace:
+            self.get_namespace()
+        
+        response = self.client.list_buckets(self.namespace, self.compartment_id)
+        
+        if response:
+            allbuckets = response.data
+        else:
+            raise ValueError(f"Could not retrieve list of OCI buckets for compartment {self.compartment_id} in namespace {self.namespace}")
+
+        for b in allbuckets:
+            if b.name == self.bucket_name:
+                self.bucket_exists = True
+        return self.bucket_exists
+    
+    def create_bucket(self) -> str:
+        """
+        Creates the bucket specified in the configuration.
+        Should be called only if the bucket doesn't already exist.
+        """
+        if not self.client:
+            self.create_client()
+        if not self.namespace:
+            self.get_namespace()
+        
+        response = self.client.create_bucket(
+            namespace_name=self.namespace,
+            create_bucket_details=oci.object_storage.models.CreateBucketDetails(
+                name=self.bucket_name,
+                compartment_id=self.compartment_id
+            )
+        )
+
+        self.bucket_exists = True
+        return response.data.name
     
     def _get_key(self, uid):
         """ Generate the object key by adding prefix for a given event UID. """
@@ -367,17 +430,11 @@ class OraclePersistence(BasePersistence):
         else:
             return uid
     
-    def get_event(self, uid):
-        return self._get_event(uid)
-
-    def _get_event(self, uid, uid_is_key=False):
+    def get_event(self, uid, uid_is_key=False):
         """
         Retrieve an event by UID from Oracle Object Storage.
-
-        Args:
             uid (str): Event UID.
             uid_is_key (bool): Use provided UID as Object Storage key (don't add prefix)
-
         Returns parsed event XML, or None if not found.
         """
         if uid_is_key:
@@ -405,13 +462,27 @@ class OraclePersistence(BasePersistence):
             elm = parser.close()
             evt = models.Event.from_elm(elm)
         except (models.UnmarshalError, etree.XMLSyntaxError) as exc:
-            self.lgr.warning("Unable to parse Event: %s", exc)
+            self.lgr.warning("Error while parsing Event: %s", exc)
         
         return evt
+    
+    def track_event(self, event, ttl=None):
+        """ 
+        Currently just a compatibility alias to _set_event() 
+          ttl argument is unused
+        """
+        try:
+            return self._set_event(event.uid, event)
+        except AttributeError:
+            return self._set_event(None, event)
 
     def _set_event(self, uid, event):
-        object_name = self._get_key(uid)
         xml_bytes = etree.tostring(event.as_element).encode("utf-8")
+        if uid:
+            object_name = self._get_key(uid)
+        else:
+            uid = hashlib.shake_128(xml_bytes).hexdigest(16)
+            object_name = self._get_key(uid)
         
         try:
             self.client.put_object(
@@ -424,6 +495,9 @@ class OraclePersistence(BasePersistence):
             raise  # Log or handle upload errors
 
         return True
+    
+    def del_event(self, event):
+        return self._del_event(event.uid)
 
     def _del_event(self, uid):
         object_name = self._get_key(uid)
@@ -441,9 +515,6 @@ class OraclePersistence(BasePersistence):
         except oci.exceptions.ServiceError as e:
             raise
         return objects
-    
-    def del_event(self, event):
-        return self._del_event(event.uid)
 
     def get_all(self):
         """
@@ -457,9 +528,6 @@ class OraclePersistence(BasePersistence):
             uids = [obj.name for obj in objects]
         
         return uids
-    
-    def track_event(self, event, ttl=None):
-        return self._set_event(event.uid, event)
     
     def event_exists(self, uid):
         # TODO: Placeholder for testing
