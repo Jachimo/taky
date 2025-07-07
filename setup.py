@@ -18,6 +18,7 @@ setup(
         "Flask~=2.0",
         "gunicorn",
         "redis",
+        "oci",
     ],
     description="A simple TAK server and COT router",
     long_description=long_description,
