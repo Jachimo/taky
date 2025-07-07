@@ -340,9 +340,11 @@ class OraclePersistence(BasePersistence):
           taky_config: a taky.config.app_config object with required [oracle] section
         """
         super().__init__()
+        self.lgr.info("Initializing Oracle Object Store backend")
 
         # Require OCI module
         if oci is None:
+            self.lgr.error("OCI SDK not installed.")
             raise ImportError("oci SDK is not installed. Please install 'oci' package.")
 
         # Required connection parameters for Oracle OCI Object Storage:
@@ -371,8 +373,10 @@ class OraclePersistence(BasePersistence):
     
     def validate_config(self) -> None:
         """ Uses OCI API to validate Object Storage configuration """
+        # TODO: Exception handling
         oci.config.validate_config(self.oci_config)  # https://docs.oracle.com/en-us/iaas/tools/python/2.154.0/api/config.html#oci.config.validate_config
         self.is_config_valid = True
+        self.lgr.info("Oracle backend configuration is valid")
         return
     
     def get_namespace(self) -> str:
@@ -380,6 +384,7 @@ class OraclePersistence(BasePersistence):
         response = self.client.get_namespace()
         if response:  # keep type checker from choking
             self.namespace = response.data
+            self.lgr.info(f"OCI namespace in use: {self.namespace}")
         return self.namespace
     
     def check_bucket_exists(self) -> bool:
@@ -409,6 +414,8 @@ class OraclePersistence(BasePersistence):
         Creates the bucket specified in the configuration.
         Should be called only if the bucket doesn't already exist.
         """
+        self.lgr.info(f"Attempting to create OCI bucket {self.bucket_name}")
+
         if not self.client:
             self.create_client()
         if not self.namespace:
@@ -421,6 +428,7 @@ class OraclePersistence(BasePersistence):
                 compartment_id=self.compartment_id
             )
         )
+        self.lgr.warning("Created new OCI bucket: {response.data.name}")
 
         self.bucket_exists = True
         return response.data.name
