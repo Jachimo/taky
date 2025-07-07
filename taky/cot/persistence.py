@@ -545,4 +545,4 @@ class OraclePersistence(BasePersistence):
 
     def prune(self):
         # TODO: Placeholder for testing; should prune object store of stale/expired items
-        raise NotImplementedError
+        pass
