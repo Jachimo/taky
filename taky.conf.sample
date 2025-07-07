@@ -7,12 +7,44 @@
 #bind_ip=
 # The server's public IP address
 #public_ip=
+# Select persistence backend. Valid options are "memory", "redis" and "oracle".
+#persistence=memory
+
+[redis]
+# Redis persistence configuration; used if persistence=redis in [taky] above.
+# Server can be 'localhost' (default), or a redis://... connect string.
+# If a connect string is supplied, the hostname= value above is used as the keyspace.
+#server=localhost
+
+[oracle]
+# Oracle Object Storage persistence configuration; used if persistence=oracle in [taky] above.
+# Values are defined in Oracle Cloud Python SDK API docs
+# OCI Bucket 
+bucket_name=
+# OCI compartment in use
+compartment=
+# Optional prefix to prepend to all document/object keys before storage (battlespace ID)
+prefix=
+# Service user's OCID
+user=
+# Absolute path to the private key file
+keyfile_path=
+# Fingerprint of public key
+fingerprint=
+# OCI Tenancy OCID
+tenancy=
+# OCI Region
+region=
 
 [cot_server]
 # If left blank, taky will listen on 8087 without SSL, or 8089 with SSL
 #port=
 # Where to store a log of .cot messages from the client for debug purposes
 #log_cot=
+# The monitor IP address. Recommend 127.0.0.1
+#mon_ip=127.0.0.1
+# Pick any port to enable the monitor server (ssl must be enabled)
+#mon_port=12345
 
 [dp_server]
 # Where user datapackage uploads are stored.
