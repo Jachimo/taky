@@ -519,11 +519,34 @@ class OraclePersistence(BasePersistence):
         return True
 
     def _get_objects(self, search_prefix):
-        try:
-            # TODO: Responses may be paginated and need to be walked through, & could be very large
-            objects = self.client.list_objects(self.namespace, self.bucket_name, prefix=search_prefix).data.objects
-        except oci.exceptions.ServiceError as e:
-            raise
+        """
+        Retrieve all objects with the given prefix from the Oracle Object Storage bucket,
+        handling paginated responses as per OCI SDK.
+
+        Note that this can be *very slow* on large object store buckets!
+
+        Refer to: https://docs.oracle.com/en-us/iaas/tools/python-sdk-examples/2.155.0/objectstorage/list_objects.py.html
+        """
+        objects = []
+        next_start_with = None
+
+        while True:
+            try:
+                response = self.client.list_objects(
+                    self.namespace,
+                    self.bucket_name,
+                    prefix=search_prefix,
+                    start=next_start_with
+                )
+            except oci.exceptions.ServiceError as e:
+                raise
+
+            objects.extend(response.data.objects)
+
+            next_start_with = response.data.next_start_with  # Check if there are more pages
+            if not next_start_with:
+                break
+
         return objects
 
     def get_all(self):
