@@ -487,7 +487,7 @@ class OraclePersistence(BasePersistence):
             return self._set_event(None, event)
 
     def _set_event(self, uid, event):
-        xml_bytes = etree.tostring(event.as_element).encode("utf-8")
+        xml_bytes = etree.tostring(event.as_element)
         if uid:
             object_name = self._get_key(uid)
         else:
