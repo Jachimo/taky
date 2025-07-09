@@ -563,8 +563,18 @@ class OraclePersistence(BasePersistence):
         return uids
     
     def event_exists(self, uid):
-        # TODO: Placeholder for testing
-        raise NotImplementedError
+        """
+        Check if an event with the given UID exists in the Oracle Object Storage bucket.
+        Returns True if the object exists, False otherwise.
+        """
+        key = self._get_key(uid)
+        try:
+            self.client.get_object(self.namespace, self.bucket_name, key)
+            return True
+        except oci.exceptions.ServiceError as e:
+            if e.status == 404:
+                return False
+            raise  # Re-raise other errors
 
     def prune(self):
         # TODO: Placeholder for testing; should prune object store of stale/expired items
