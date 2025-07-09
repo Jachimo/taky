@@ -341,6 +341,9 @@ class OraclePersistence(BasePersistence):
         """
         super().__init__()
         self.lgr.info("Initializing Oracle Object Store backend")
+        self.is_config_valid = False
+        self.bucket_exists = False
+        self.namespace = ''
 
         # Require OCI module
         if oci is None:
@@ -359,9 +362,8 @@ class OraclePersistence(BasePersistence):
         self.compartment_id = taky_config.get("oracle", "compartment")
         self.bucket_name = taky_config.get("oracle", "bucket_name")
         self.prefix = taky_config.get("oracle", "prefix")
-        self.is_config_valid = False
-        self.namespace = ''
 
+        # Set up the client connection to the Object Storage backend
         self.client = self.create_client()
     
     def create_client(self) -> oci.object_storage.ObjectStorageClient:
@@ -369,8 +371,13 @@ class OraclePersistence(BasePersistence):
         if not self.is_config_valid:
             self.validate_config()
         self.client = oci.object_storage.ObjectStorageClient(self.oci_config)
+        if not self.namespace:
+            self.namespace = self.get_namespace()
+        if not self.bucket_exists:
+            if not self.check_bucket_exists():
+                self.create_bucket()
         return self.client
-    
+
     def validate_config(self) -> None:
         """ Uses OCI API to validate Object Storage configuration """
         # TODO: Exception handling
@@ -381,21 +388,19 @@ class OraclePersistence(BasePersistence):
     
     def get_namespace(self) -> str:
         """ Retrieves the immutable namespace for the Oracle Cloud Storage instance """
-        response = self.client.get_namespace()
+        response = self.client.get_namespace(compartment_id=self.compartment_id)
         if response:  # keep type checker from choking
             self.namespace = response.data
             self.lgr.info(f"OCI namespace in use: {self.namespace}")
-        return self.namespace
+            return self.namespace
+        else:
+            raise ConnectionError(f"No response from Object Storage service while attempting to retrieve OCI namespace")
     
     def check_bucket_exists(self) -> bool:
         """
         Checks to see if a bucket exists by looking for it in list of all buckets.
         Could potentially be slow on a large Object Storage instance.
         """
-        if not self.client:
-            self.create_client()
-        if not self.namespace:
-            self.get_namespace()
         
         response = self.client.list_buckets(self.namespace, self.compartment_id)
         
@@ -415,11 +420,6 @@ class OraclePersistence(BasePersistence):
         Should be called only if the bucket doesn't already exist.
         """
         self.lgr.info(f"Attempting to create OCI bucket {self.bucket_name}")
-
-        if not self.client:
-            self.create_client()
-        if not self.namespace:
-            self.get_namespace()
         
         response = self.client.create_bucket(
             namespace_name=self.namespace,
