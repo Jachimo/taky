@@ -2,10 +2,17 @@
 
 taky - A simple COT server for ATAK
 
-![python](https://img.shields.io/badge/python-3.6%7C3.7%7C3.8-black)
-![pylint](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/tkuester/b8b273c056ed05901cfc671070e875ed/raw/taky-pylint-shieldsio.json)
-![coverage](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/tkuester/c7e215b2645a1b63b07f12eff8f13fdb/raw/taky-coverage-shieldsio.json)
-![PyPI](https://img.shields.io/pypi/v/taky)
+## Changes From Upstream
+
+This is a highly experimental, development-grade fork of Taky, with a handful of
+changes that may or may not be of interest:
+
+ * Oracle Cloud Infrastructure (OCI) Object Storage backend added
+   * Uses the official Oracle Cloud SDK to persist CoT messages
+   * Oracle SDK not required, if you aren't using it (Redis made optional, too)
+ * Import statements updated for PEP 420 compliance
+   * Builds (with complaints) using recent Setuptools
+   * First step towards PEP 518 
 
 ## Features (and anti-Features!)
 
