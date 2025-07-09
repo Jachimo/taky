@@ -518,16 +518,17 @@ class OraclePersistence(BasePersistence):
                 raise  # Ignore not found, raise other errors
         return True
 
-    def _get_objects(self, search_prefix):
+    def _get_obj_list(self, search_prefix):
         """
-        Retrieve all objects with the given prefix from the Oracle Object Storage bucket,
-        handling paginated responses as per OCI SDK.
+        Retrieve all objects with the given search_prefix from the Oracle Object Storage bucket,
+        handling paginated responses (1000 per response) as per OCI SDK.
 
-        Note that this can be *very slow* on large object store buckets!
+        Returns a list of objects with object.name populated,
+        where object.name is a UID that can be used to retrieve the entire item via get_event()
 
         Refer to: https://docs.oracle.com/en-us/iaas/tools/python-sdk-examples/2.155.0/objectstorage/list_objects.py.html
         """
-        objects = []
+        obj_list = []
         next_start_with = None
 
         while True:
@@ -541,26 +542,30 @@ class OraclePersistence(BasePersistence):
             except oci.exceptions.ServiceError as e:
                 raise
 
-            objects.extend(response.data.objects)
+            obj_list.extend(response.data.objects)
 
             next_start_with = response.data.next_start_with  # Check if there are more pages
             if not next_start_with:
                 break
 
-        return objects
+        return obj_list
 
     def get_all(self):
         """
-        List all event UIDs stored in Oracle Object Storage bucket (with prefix, if enabled).
+        Get all events from the Object Storage backend. 
+        Returns a list of taky.cot.models.event objects
         """
-        objects = self._get_objects(self.prefix)
-            
-        if self.prefix:
-            uids = [obj.name[len(self.prefix)+1:] for obj in objects]
-        else: 
-            uids = [obj.name for obj in objects]
-        
-        return uids
+        self.lgr.debug("Running OraclePersistence.get_all()")
+        obj_names = self._get_obj_list(self.prefix)
+        events = []
+        for ob in obj_names:
+            try:
+                events.append(self.get_event(ob.name))
+            except Exception as exc:
+                # Log and skip malformed objects
+                self.lgr.warning(f"Skipping invalid event in persistence: {exc}")
+        return events
+
     
     def event_exists(self, uid):
         """
