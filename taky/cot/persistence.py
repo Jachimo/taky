@@ -48,7 +48,7 @@ except ImportError:
     oci = None
 
 from taky.config import app_config as config
-from . import models
+from taky.cot import models
 
 KEPT_EVENTS = [
     "a-",

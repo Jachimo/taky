@@ -1,6 +1,6 @@
-from .xmldeclstrip import XMLDeclStrip
-from . import anc
-from . import datapackage
+from . import xmldeclstrip as XMLDeclStrip
+from . import anc as anc
+from . import datapackage as datapackage
 
 
 def seconds_to_human(sec):

@@ -7,9 +7,9 @@ import logging
 
 from taky.config import app_config as config
 from taky.util import anc
-from .router import COTRouter
-from .client import TAKClient, SocketTAKClient
-from .mgmt import MgmtClient
+from taky.cot.router import COTRouter
+from taky.cot.client import TAKClient, SocketTAKClient
+from taky.cot.mgmt import MgmtClient
 
 
 def build_srv(ip_addr, port):

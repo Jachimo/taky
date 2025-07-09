@@ -12,8 +12,8 @@ import traceback
 from lxml import etree
 
 from taky.config import app_config
-from taky.util import XMLDeclStrip
-from . import models
+from taky.util.xmldeclstrip import XMLDeclStrip
+from taky.cot import models
 
 
 class SSLState(enum.Enum):

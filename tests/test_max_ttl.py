@@ -9,7 +9,6 @@ from lxml import etree
 
 from taky import cot
 from taky.config import load_config, app_config
-from taky.cot import models
 from taky.config import load_config
 from . import XML_S, UnittestTAKClient
 

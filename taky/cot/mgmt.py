@@ -2,7 +2,7 @@ import logging
 import time
 import json
 
-from .client import SocketClient, TAKClient
+from taky.cot.client import SocketClient, TAKClient
 
 
 class MgmtClient(SocketClient):
