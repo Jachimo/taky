@@ -384,11 +384,18 @@ class SocketTAKClient(TAKClient, SocketClient):
 
         @param event A CoT Event object
         """
-        if not isinstance(event, models.Event):
-            raise TypeError("Must send a COTEvent")
-
+        # If there's nothing to send, don't.
+        if not event:
+            return
+        
         # Silently drop data if the SSL handshake is not ready yet
         if not self.ready:
             return
 
+        if not isinstance(event, models.Event):
+            #raise TypeError("Must send a COTEvent")
+            self.lgr.warning(f"Attempted to send an event that was not of type models.Event: {event}")
+
         self.out_buff += etree.tostring(event.as_element)
+
+        return True
